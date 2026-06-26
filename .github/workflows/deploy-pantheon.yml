@@ -94,8 +94,11 @@ jobs:
       - name: Autenticar Terminus
         run: terminus auth:login --machine-token=${{ secrets.TERMINUS_TOKEN }}
 
+      - name: Verificar bootstrap de Drupal
+        run: terminus drush ${{ env.TERMINUS_SITE }}.dev -- status --fields=drupal-version,db-status,conf-dir -vvv
+
       - name: Tareas post-deploy en dev (updatedb, config-import, cache-rebuild)
-        run: terminus drush ${{ env.TERMINUS_SITE }}.dev -- deploy -y
+        run: terminus drush ${{ env.TERMINUS_SITE }}.dev -- deploy -y -vvv
 
       - name: Promover dev -> test
         # Borrá este paso si preferís promover manualmente o no usás el ambiente test
