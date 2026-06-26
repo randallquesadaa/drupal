@@ -1,0 +1,22 @@
+uuid: 27cc8008-98e3-42dd-b35a-a60ab9fdea0e
+langcode: en
+status: true
+dependencies:
+  theme:
+    - mi_tema
+_core:
+  default_config_hash: ACjBZI5shAMiiUpsz-inLYVXDqNNXRnSzAWV3kV_8Hw
+id: mi_tema_primary_local_tasks
+theme: mi_tema
+region: header
+weight: 0
+provider: null
+plugin: local_tasks_block
+settings:
+  id: local_tasks_block
+  label: 'Primary tabs'
+  label_display: '0'
+  provider: core
+  primary: true
+  secondary: false
+visibility: {  }
