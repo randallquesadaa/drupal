@@ -67,6 +67,9 @@ jobs:
           # Agregar el resto de archivos rastreados normalmente
           git add -A
 
+          # Eliminar archivos reservados por Pantheon que no deben tocarse
+          git rm --cached web/core/pantheon.upstream.yml 2>/dev/null || true
+
           git commit -m "Build para Pantheon [skip ci]" \
             || echo "Sin cambios nuevos que commitear"
 

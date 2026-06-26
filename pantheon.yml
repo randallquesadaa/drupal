@@ -1,0 +1,14 @@
+api_version: 1
+
+# Indica a Pantheon que el docroot es web/ y no la raiz del repo.
+# Sin esto, Pantheon intenta servir desde la raiz y el sitio no funciona.
+web_docroot: true
+
+php_version: 8.5   # CAMBIAR: Pantheon soporta 8.1, 8.2, 8.3
+
+# No se declara drush_version porque enviamos vendor/ con Drush 13 incluido.
+# Pantheon usara el Drush del proyecto (vendor/bin/drush).
+
+# Desactivar Integrated Composer: el CI envia vendor/ y web/core/
+# ya compilados, Pantheon no necesita correr composer install.
+build_step: false
