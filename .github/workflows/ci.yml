@@ -65,7 +65,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: ESLint
-        run: pnpm exec eslint "${{ env.DRUPAL_ROOT }}/modules/custom/**/*.js" "${{ env.DRUPAL_ROOT }}/themes/custom/**/*.js" --no-error-on-unmatched-pattern
+        run: |
+          pnpm exec eslint \
+            --no-eslintrc --config .eslintrc.json \
+            "${{ env.DRUPAL_ROOT }}/modules/custom/**/*.js" \
+            "${{ env.DRUPAL_ROOT }}/themes/custom/**/*.js" \
+            --no-error-on-unmatched-pattern
 
       - name: Stylelint
         run: pnpm exec stylelint "${{ env.DRUPAL_ROOT }}/themes/custom/**/*.{css,scss}" --allow-empty-input
