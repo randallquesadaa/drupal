@@ -2,9 +2,6 @@
 # Si usás extension-installer, este include puede no ser necesario (se
 # autodetecta). Lo dejamos explícito para que sea más fácil de entender.
 
-includes:
-  - vendor/mglaman/phpstan-drupal/extension.neon
-
 parameters:
   # CAMBIAR: nivel de estrictez. 0 = muy permisivo, 9 = máximo.
   # Para un Drupal típico, arrancar en 4-5 y subir de a poco es realista.

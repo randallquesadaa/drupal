@@ -1,0 +1,5 @@
+name: Drupal Misc
+type: module
+description: Módulo de prueba para el pipeline CI/CD.
+package: Custom
+core_version_requirement: ^11

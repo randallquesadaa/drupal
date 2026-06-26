@@ -1,0 +1,8 @@
+<?php
+
+/**
+ * @file
+ * Módulo de prueba para el pipeline CI/CD.
+ */
+
+declare(strict_types=1);

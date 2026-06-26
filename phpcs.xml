@@ -13,7 +13,6 @@
   <arg name="colors"/>
   <arg value="sp"/>
 
-  <!-- Requiere: composer require --dev drupal/coder squizlabs/php_codesniffer -->
   <rule ref="Drupal"/>
   <rule ref="DrupalPractice"/>
 

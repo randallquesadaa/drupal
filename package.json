@@ -1,0 +1,10 @@
+{
+  "name": "drupal-ci-tools",
+  "private": true,
+  "packageManager": "pnpm@11.8.0",
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "stylelint": "^16.0.0",
+    "stylelint-config-standard": "^36.0.0"
+  }
+}

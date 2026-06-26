@@ -1,0 +1,36 @@
+{
+  "id": "drupal_site",
+  "viewports": [
+    { "label": "desktop", "width": 1280, "height": 800 },
+    { "label": "mobile",  "width": 375,  "height": 667 }
+  ],
+  "scenarios": [
+    {
+      "label": "Home",
+      "url": "http://127.0.0.1:8081",
+      "delay": 500,
+      "misMatchThreshold": 0.1
+    },
+    {
+      "label": "Login",
+      "url": "http://127.0.0.1:8081/user/login",
+      "delay": 500,
+      "misMatchThreshold": 0.1
+    }
+  ],
+  "paths": {
+    "bitmaps_reference": "bitmaps_reference",
+    "bitmaps_test":      "bitmaps_test",
+    "html_report":       "html_report",
+    "ci_report":         "ci_report"
+  },
+  "report": ["browser", "CI"],
+  "engine": "puppeteer",
+  "engineOptions": {
+    "args": ["--no-sandbox", "--disable-setuid-sandbox"]
+  },
+  "asyncCaptureLimit": 3,
+  "asyncCompareLimit": 50,
+  "debug": false,
+  "debugWindow": false
+}

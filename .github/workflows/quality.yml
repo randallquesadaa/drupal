@@ -7,8 +7,12 @@ on:
 
 env:
   DRUPAL_ROOT: web
-  PHP_VERSION: "8.3"
-  NODE_VERSION: "20"
+  PHP_VERSION: "8.5"
+  NODE_VERSION: "24"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
 
@@ -60,10 +64,10 @@ jobs:
 
       - name: Instalar el sitio
         run: |
-          vendor/bin/drush site-install standard \
-            --db-url="${{ env.SIMPLETEST_DB }}" -y
-          vendor/bin/drush config:import -y || true
-          # Importante para que Lighthouse mida algo realista:
+          vendor/bin/drush site-install \
+            --existing-config \
+            --db-url="${{ env.SIMPLETEST_DB }}" \
+            -y
           vendor/bin/drush cache:rebuild
 
       - name: Levantar servidor
@@ -71,23 +75,24 @@ jobs:
           vendor/bin/drush runserver 127.0.0.1:8080 &
           sleep 5
 
+      - uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Lighthouse CI
-        run: |
-          npm install -g @lhci/cli@0.13.x
-          lhci autorun --config=.lighthouserc.json
+        run: pnpm dlx @lhci/cli@0.13.x autorun --config=.lighthouserc.json
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 
       - name: Accesibilidad con pa11y-ci
+        env:
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/google-chrome-stable
         run: |
-          npm install -g pa11y-ci
           # CAMBIAR: agregá tantas URLs como páginas clave quieras auditar
-          pa11y-ci http://127.0.0.1:8080 http://127.0.0.1:8080/user/login
+          pnpm dlx pa11y-ci http://127.0.0.1:8080 http://127.0.0.1:8080/user/login
 
   visual-regression:
     name: Regresión visual (BackstopJS)
@@ -137,9 +142,10 @@ jobs:
 
       - name: Instalar el sitio
         run: |
-          vendor/bin/drush site-install standard \
-            --db-url="${{ env.SIMPLETEST_DB }}" -y
-          vendor/bin/drush config:import -y || true
+          vendor/bin/drush site-install \
+            --existing-config \
+            --db-url="${{ env.SIMPLETEST_DB }}" \
+            -y
 
       - name: Levantar servidor
         run: |
@@ -151,8 +157,12 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Instalar BackstopJS
-        run: npm install -g backstopjs
+      - uses: pnpm/action-setup@v4
+
+      - name: Setup Node (BackstopJS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Correr comparación visual
         working-directory: tests/backstop
@@ -160,7 +170,7 @@ jobs:
           # IMPORTANTE: la primera vez no hay imágenes de referencia.
           # Generalas localmente con "backstop reference" y commiteá
           # tests/backstop/bitmaps_reference/ antes de confiar en este paso.
-          backstop test --config=backstop.json || echo "⚠️ Hay diffs visuales — revisá el reporte en el artifact"
+          pnpm dlx backstopjs test --config=backstop.json || echo "Hay diffs visuales - revisa el reporte en el artifact"
 
       - name: Subir reporte visual
         if: always()

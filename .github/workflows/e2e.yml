@@ -8,8 +8,12 @@ on:
 
 env:
   DRUPAL_ROOT: web        # CAMBIAR si tu docroot no es "web"
-  PHP_VERSION: "8.3"       # CAMBIAR
-  NODE_VERSION: "20"       # CAMBIAR
+  PHP_VERSION: "8.5"       # CAMBIAR
+  NODE_VERSION: "24"       # CAMBIAR
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -64,44 +68,41 @@ jobs:
           fi
 
       - name: Instalar el sitio
-        # CAMBIAR "standard" por tu perfil real, e idealmente cargar
-        # contenido de prueba (ej. vía un módulo de "demo content" o un
-        # script de devel-generate) para que los tests E2E tengan algo
-        # significativo para interactuar.
         run: |
-          vendor/bin/drush site-install standard \
+          vendor/bin/drush site-install \
+            --existing-config \
             --db-url="${{ env.SIMPLETEST_DB }}" \
-            --site-name="E2E Build" \
             --account-name=admin \
             --account-pass=admin \
             -y
-          vendor/bin/drush config:import -y || true
 
       - name: Levantar servidor
         run: |
           vendor/bin/drush runserver 127.0.0.1:8080 &
           sleep 5
 
+      - uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: tests/playwright/package-lock.json
+          cache: "pnpm"
+          cache-dependency-path: tests/playwright/pnpm-lock.yaml
 
       - name: Instalar dependencias de Playwright
         working-directory: tests/playwright
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Instalar navegadores de Playwright
         working-directory: tests/playwright
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Correr tests E2E
         working-directory: tests/playwright
         env:
           BASE_URL: ${{ env.BASE_URL }}
-        run: npx playwright test
+        run: pnpm exec playwright test
 
       - name: Subir reporte de Playwright
         if: always()

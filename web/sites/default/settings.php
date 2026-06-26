@@ -258,7 +258,7 @@ $databases = [];
  * directory in the public files path. The setting below allows you to set
  * its location.
  */
-# $settings['config_sync_directory'] = '/directory/outside/webroot';
+$settings['config_sync_directory'] = 'sites/default/config/sync';
 
 /**
  * Settings:
@@ -878,6 +878,10 @@ $settings['migrate_node_migrate_type_classic'] = FALSE;
 // Automatically generated include for settings managed by ddev.
 if (getenv('IS_DDEV_PROJECT') == 'true' && file_exists(__DIR__ . '/settings.ddev.php')) {
   include __DIR__ . '/settings.ddev.php';
+}
+
+if (getenv('CI') && file_exists(__DIR__ . '/settings.ci.php')) {
+  include __DIR__ . '/settings.ci.php';
 }
 
 /**

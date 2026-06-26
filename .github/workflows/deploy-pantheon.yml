@@ -15,6 +15,10 @@ on:
     types: [completed]
     branches: [main]   # CAMBIAR
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy a Pantheon

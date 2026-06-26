@@ -2,6 +2,7 @@
   "name": "drupal-e2e-tests",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@11.8.0",
   "description": "Tests E2E con Playwright para el sitio Drupal.",
   "scripts": {
     "test": "playwright test",
