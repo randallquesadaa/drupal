@@ -9,12 +9,12 @@ parameters:
 
   # CAMBIAR: rutas de tu código custom.
   paths:
-    - web/modules/custom
-    - web/themes/custom
+    - ../../web/modules/custom
+    - ../../web/themes/custom
 
   # CAMBIAR: la ruta a tu Drupal root si no es "web/"
   drupal:
-    drupal_root: web
+    drupal_root: ../../web
 
   excludePaths:
     - */tests/fixtures/*
