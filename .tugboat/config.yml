@@ -9,7 +9,7 @@ services:
 
       # INIT: runs once when the preview is first created.
       init:
-        - docker-php-ext-install opcache
+        - docker-php-ext-enable opcache
         - a2enmod headers rewrite
         - ln -snf "${TUGBOAT_ROOT}/web" "${DOCROOT}"
         - ln -snf "${TUGBOAT_ROOT}/vendor/bin/drush" /usr/local/bin/drush
