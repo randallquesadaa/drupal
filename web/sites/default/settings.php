@@ -880,6 +880,10 @@ if (getenv('IS_DDEV_PROJECT') == 'true' && file_exists(__DIR__ . '/settings.ddev
   include __DIR__ . '/settings.ddev.php';
 }
 
+if (getenv('CI') && file_exists(__DIR__ . '/settings.ci.php')) {
+  include __DIR__ . '/settings.ci.php';
+}
+
 /**
  * Load local development override configuration, if available.
  *

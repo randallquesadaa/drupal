@@ -53,23 +53,22 @@ jobs:
       - name: PHPStan
         run: vendor/bin/phpstan analyse --configuration=phpstan.neon
 
+      - uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Instalar dependencias JS
-        # CAMBIAR: si tu package.json no está en la raíz, agregá
-        # working-directory acá.
-        run: npm ci
-        continue-on-error: false
+        run: pnpm install --frozen-lockfile
 
       - name: ESLint
-        run: npx eslint "${{ env.DRUPAL_ROOT }}/modules/custom/**/*.js" "${{ env.DRUPAL_ROOT }}/themes/custom/**/*.js" --no-error-on-unmatched-pattern
+        run: pnpm exec eslint "${{ env.DRUPAL_ROOT }}/modules/custom/**/*.js" "${{ env.DRUPAL_ROOT }}/themes/custom/**/*.js" --no-error-on-unmatched-pattern
 
       - name: Stylelint
-        run: npx stylelint "${{ env.DRUPAL_ROOT }}/themes/custom/**/*.{css,scss}" --allow-empty-input
+        run: pnpm exec stylelint "${{ env.DRUPAL_ROOT }}/themes/custom/**/*.{css,scss}" --allow-empty-input
 
   # ──────────────────────────── SEGURIDAD ─────────────────────────
   security:
@@ -184,33 +183,28 @@ jobs:
             echo "⚠️ Usando el settings.ci.php de ejemplo. Reemplazalo por el tuyo si ya lo personalizaste."
           fi
 
-      - name: Instalar el sitio (drush site-install)
-        # CAMBIAR "standard" por tu perfil de instalación real
+      - name: Instalar el sitio
         run: |
-          vendor/bin/drush site-install standard \
+          vendor/bin/drush site-install \
+            --existing-config \
             --db-url="${{ env.SIMPLETEST_DB }}" \
-            --site-name="CI Build" \
             --account-name=admin \
             --account-pass=admin \
             -y
-
-      - name: Importar configuración
-        # CAMBIAR: agregá --partial si usás Config Split u otra estrategia
-        run: vendor/bin/drush config:import -y || echo "Sin config para importar o ya sincronizada"
 
       - name: Levantar servidor de pruebas
         run: |
           vendor/bin/drush runserver 127.0.0.1:8080 &
           sleep 5
 
-      - name: PHPUnit (Unit + Kernel)
-        # CAMBIAR el group/testsuite según cómo organices tus tests
+      - name: PHPUnit (custom modules)
         run: |
           vendor/bin/phpunit \
-            --testsuite=unit,kernel \
-            --coverage-clover=coverage.xml \
             --bootstrap="${{ env.DRUPAL_ROOT }}/core/tests/bootstrap.php" \
-            --configuration="${{ env.DRUPAL_ROOT }}/core"
+            --configuration="${{ env.DRUPAL_ROOT }}/core" \
+            --coverage-clover=coverage.xml \
+            "${{ env.DRUPAL_ROOT }}/modules/custom" \
+            "${{ env.DRUPAL_ROOT }}/themes/custom"
 
       - name: Subir cobertura a Codecov
         uses: codecov/codecov-action@v4
