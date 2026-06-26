@@ -68,6 +68,25 @@ services:
         # en vez de "vendor/bin/drush" en cualquier comando posterior.
         - ln -snf "${TUGBOAT_ROOT}/vendor/bin/drush" /usr/local/bin/drush
 
+        # Cliente MySQL necesario para importar el backup.
+        - apt-get update -qq && apt-get install -y -qq default-mysql-client
+
+        # Importa el backup desde la raíz del repo.
+        # Soporta db.sql.gz (preferido) o db.sql.
+        # CAMBIAR: si tu archivo se llama distinto, ajustá los nombres acá.
+        - |
+          set -e
+          if [ -f "${TUGBOAT_ROOT}/db.sql.gz" ]; then
+            echo "→ Importando db.sql.gz"
+            zcat "${TUGBOAT_ROOT}/db.sql.gz" | mysql -h mysql -u tugboat -ptugboat tugboat
+          elif [ -f "${TUGBOAT_ROOT}/db.sql" ]; then
+            echo "→ Importando db.sql"
+            mysql -h mysql -u tugboat -ptugboat tugboat < "${TUGBOAT_ROOT}/db.sql"
+          else
+            echo "⚠️ No se encontró db.sql.gz ni db.sql en la raíz del proyecto"
+            exit 1
+          fi
+
       # ── UPDATE: corre en cada rebuild (cuando hay un nuevo commit en el
       # PR). Si el preview es nuevo, también corre antes de "build". ─────
       update:
@@ -76,8 +95,8 @@ services:
         - export COMPOSER_MEMORY_LIMIT=-1
         - composer install --optimize-autoloader --no-interaction
 
-      # ── BUILD: corre después de "update". Acá instalamos/actualizamos
-      # el sitio Drupal en sí. ───────────────────────────────────────────
+      # ── BUILD: corre después de "update". Aplica cambios sobre el
+      # backup importado en init. ────────────────────────────────────────
       build:
         # Copia el settings.tugboat.php (ver ese archivo en esta misma
         # carpeta) al sitio, para que apunte a la base de datos correcta
@@ -101,31 +120,10 @@ services:
         - find "${DOCROOT}/sites/default/files" -type d -exec chmod 2775 {} \;
         - find "${DOCROOT}/sites/default/files" -type f -exec chmod 0664 {} \;
 
-        # ── Instalación o actualización del sitio ──
-        # Esta lógica decide si es la primera vez (site-install) o un
-        # refresh de un preview ya existente (updb + cim).
-        # CAMBIAR "standard" por tu perfil de instalación real.
-        - |
-          set -e
-          if ! drush status --field=bootstrap 2>/dev/null | grep -q "Successful"; then
-            echo "→ Primera instalación del sitio"
-            drush site-install standard \
-              --db-url="mysql://tugboat:tugboat@mysql:3306/tugboat" \
-              --site-name="Preview de PR — ${TUGBOAT_PREVIEW_NAME}" \
-              --account-name=admin \
-              --account-pass=admin \
-              --yes
-          else
-            echo "→ Actualizando sitio existente"
-            drush updatedb --yes
-          fi
-          drush config:import --yes || echo "Sin configuración para importar o ya sincronizada"
-          drush cache:rebuild
-
-        # CAMBIAR: si tenés contenido de demo (ej. vía un módulo
-        # "demo_content" o devel-generate), generalo acá para que cada
-        # preview tenga datos representativos:
-        # - drush devel-generate:content 20 --types=article,page
+        # Aplica actualizaciones de base de datos e importa configuración.
+        - drush updatedb --yes
+        - drush config:import --yes || echo "Sin configuración para importar o ya sincronizada"
+        - drush cache:rebuild
 
       # ── ONLINE: corre DESPUÉS de que el preview ya está público y
       # respondiendo. Ideal para correr tests automatizados contra el
