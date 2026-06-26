@@ -83,17 +83,14 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Lighthouse CI
-        run: |
-          pnpm add -g @lhci/cli@0.13.x
-          lhci autorun --config=.lighthouserc.json
+        run: pnpm dlx @lhci/cli@0.13.x autorun --config=.lighthouserc.json
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 
       - name: Accesibilidad con pa11y-ci
         run: |
-          pnpm add -g pa11y-ci
           # CAMBIAR: agregá tantas URLs como páginas clave quieras auditar
-          pa11y-ci http://127.0.0.1:8080 http://127.0.0.1:8080/user/login
+          pnpm dlx pa11y-ci http://127.0.0.1:8080 http://127.0.0.1:8080/user/login
 
   visual-regression:
     name: Regresión visual (BackstopJS)
@@ -165,16 +162,13 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Instalar BackstopJS
-        run: pnpm add -g backstopjs
-
       - name: Correr comparación visual
         working-directory: tests/backstop
         run: |
           # IMPORTANTE: la primera vez no hay imágenes de referencia.
           # Generalas localmente con "backstop reference" y commiteá
           # tests/backstop/bitmaps_reference/ antes de confiar en este paso.
-          backstop test --config=backstop.json || echo "⚠️ Hay diffs visuales — revisá el reporte en el artifact"
+          pnpm dlx backstopjs test --config=backstop.json || echo "Hay diffs visuales - revisa el reporte en el artifact"
 
       - name: Subir reporte visual
         if: always()
