@@ -22,4 +22,6 @@ module:
   minimal: 1000
 theme:
   claro: 0
+  stable9: 0
+  mi_tema: 0
 profile: minimal

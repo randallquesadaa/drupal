@@ -83,7 +83,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Lighthouse CI
-        run: pnpm dlx @lhci/cli@0.13.x autorun --config=.lighthouserc.json
+        run: pnpm dlx @lhci/cli@0.13.x autorun --config=tests/config/.lighthouserc.json
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 
@@ -92,7 +92,7 @@ jobs:
           PUPPETEER_EXECUTABLE_PATH: /usr/bin/google-chrome-stable
         run: |
           # CAMBIAR: agregá tantas URLs como páginas clave quieras auditar
-          pnpm dlx pa11y-ci http://127.0.0.1:8080 http://127.0.0.1:8080/user/login
+          pnpm dlx pa11y-ci --config=tests/config/.pa11yci.json http://127.0.0.1:8080 http://127.0.0.1:8080/user/login
 
   visual-regression:
     name: Regresión visual (BackstopJS)

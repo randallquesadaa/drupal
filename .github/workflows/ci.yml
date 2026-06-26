@@ -48,10 +48,10 @@ jobs:
         run: |
           # CAMBIAR rutas dentro de phpcs.xml si tu código custom no está en
           # web/modules/custom o web/themes/custom
-          vendor/bin/phpcs --standard=phpcs.xml
+          vendor/bin/phpcs --standard=tests/config/phpcs.xml
 
       - name: PHPStan
-        run: vendor/bin/phpstan analyse --configuration=phpstan.neon
+        run: vendor/bin/phpstan analyse --configuration=tests/config/phpstan.neon
 
       - uses: pnpm/action-setup@v4
 
