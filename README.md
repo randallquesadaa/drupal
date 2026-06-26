@@ -21,7 +21,7 @@ que hay que tocar.
 | Análisis estático PHP | PHPStan + phpstan-drupal | `phpstan.neon` |
 | Lint JS | ESLint | `.eslintrc.json` |
 | Lint CSS/SCSS | Stylelint | `.stylelintrc.json` |
-| Auditoría de dependencias | `composer audit` + composer-drupal-security-advisories | `.github/workflows/ci.yml` |
+| Auditoría de dependencias | `composer audit` | `.github/workflows/ci.yml` |
 | Tests Unit/Kernel | PHPUnit | `.github/workflows/ci.yml` |
 | Build + instalación del sitio | Drush + MySQL service | `.github/workflows/ci.yml` |
 | Tests E2E (funcionales) | Playwright | `.github/workflows/e2e.yml`, `tests/playwright/` |

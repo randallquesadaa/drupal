@@ -101,11 +101,13 @@
         }
     },
     "require-dev": {
+        "behat/mink": "^1.10",
         "drupal/coder": "^9.0",
         "drupal/core-dev": "^8.0@beta",
         "mglaman/phpstan-drupal": "^2.0",
         "phpspec/prophecy-phpunit": "^2.5",
         "phpstan/extension-installer": "^1.4",
+        "phpunit/phpunit": "^11",
         "squizlabs/php_codesniffer": "^4.0"
     }
 }

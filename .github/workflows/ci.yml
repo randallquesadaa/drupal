@@ -102,15 +102,6 @@ jobs:
       - name: Composer audit
         run: composer audit
 
-      - name: Drupal Security Advisories check
-        # Requiere agregar a tu composer.json raíz, una sola vez:
-        #   composer require --dev mglaman/composer-drupal-security-advisories:dev-latest
-        # Esto hace que `composer install` falle si algún módulo instalado
-        # tiene una vulnerabilidad conocida. No necesita un paso aparte si
-        # ya está en composer.json, pero lo dejamos explícito para que se
-        # vea en el log de CI.
-        run: |
-          composer show mglaman/composer-drupal-security-advisories || echo "⚠️ CAMBIAR - agregá mglaman/composer-drupal-security-advisories a composer.json (ver comentario arriba)"
 
   # ─────────────────── UNIT/KERNEL TESTS + BUILD ──────────────────
   build-and-test:
