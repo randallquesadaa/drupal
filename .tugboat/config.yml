@@ -1,169 +1,62 @@
-# ═══════════════════════════════════════════════════════════════════════
-# Configuración de Tugboat para Drupal 11 + PHP 8.5
-# ═══════════════════════════════════════════════════════════════════════
-#
-# Tugboat (https://www.tugboatqa.com) levanta un sitio Drupal COMPLETO y
-# funcional por cada Pull Request — base de datos propia, archivos
-# propios, URL propia — y lo destruye cuando el PR se cierra. Es la pieza
-# que falta en el pipeline de GitHub Actions: ahí corrés tests contra el
-# código, pero nunca ves el sitio "vivo". Con Tugboat, cualquiera (un
-# diseñador, un PM, un QA) puede abrir el link del preview y navegarlo.
-#
-# Este archivo va en la RAÍZ del repo, en la ruta .tugboat/config.yml
-# (no cambies el nombre ni la ubicación, Tugboat lo busca ahí siempre).
-#
-# Documentación oficial de referencia:
-#   https://docs.tugboatqa.com
-#
-# ═══════════════════════════════════════════════════════════════════════
-# REQUISITOS PREVIOS (fuera de este archivo):
-# ═══════════════════════════════════════════════════════════════════════
-#   1. Crear cuenta en https://dashboard.tugboatqa.com (tiene tier gratis
-#      limitado en cantidad de previews simultáneos — revisá los límites
-#      actuales en tugboatqa.com/pricing, cambian con el tiempo).
-#   2. Conectar tu repo de GitHub desde el dashboard de Tugboat
-#      (Add Project -> Choose Repository -> autorizar el GitHub App).
-#   3. Una vez conectado, Tugboat detecta este archivo automáticamente y
-#      arma un preview en cada Pull Request nuevo, comentando el link
-#      directo en el propio PR de GitHub (no hace falta ningún workflow
-#      de GitHub Actions para esto, Tugboat lo hace solo).
-#
-# CAMBIAR: revisá cada bloque marcado con "CAMBIAR:" abajo.
-# ═══════════════════════════════════════════════════════════════════════
-
 services:
 
-  # ─────────────────────── Servicio PHP + Apache ───────────────────────
   php:
-    # CAMBIAR: si tu Drupal 11 todavía no certificó PHP 8.5 en producción
-    # y preferís alinear el preview con tu versión real, usá 8.3 u 8.4:
-    #   image: tugboatqa/php:8.3-apache-bookworm
-    #   image: tugboatqa/php:8.4-apache-bookworm
-    # Lista completa de tags disponibles:
-    #   https://hub.docker.com/r/tugboatqa/php/tags
     image: tugboatqa/php:8.5-apache-bookworm
-
-    # Este es el servicio "default": el que recibe las requests del
-    # preview público y donde se clona el repo automáticamente.
     default: true
-
-    # Espera a que mysql esté listo antes de arrancar.
     depends: mysql
 
     commands:
 
-      # ── INIT: corre una sola vez, cuando se crea el preview por primera
-      # vez. No se repite en rebuilds normales. ──────────────────────────
+      # INIT: runs once when the preview is first created.
       init:
-        # Extensiones y módulos de Apache que Drupal necesita.
         - docker-php-ext-install opcache
         - a2enmod headers rewrite
-
-        # CAMBIAR: ruta del docroot. Por defecto Drupal 11 con
-        # drupal/recommended-project usa "web/". Si tu docroot es otro
-        # (ej. "docroot/"), cambiá esta línea.
         - ln -snf "${TUGBOAT_ROOT}/web" "${DOCROOT}"
-
-        # Crea un symlink global a drush para poder llamarlo como "drush"
-        # en vez de "vendor/bin/drush" en cualquier comando posterior.
         - ln -snf "${TUGBOAT_ROOT}/vendor/bin/drush" /usr/local/bin/drush
-
-        # Cliente MySQL necesario para importar el backup.
         - apt-get update -qq && apt-get install -y -qq default-mysql-client
-
-        # Importa el backup desde la raíz del repo.
-        # Soporta db.sql.gz (preferido) o db.sql.
-        # CAMBIAR: si tu archivo se llama distinto, ajustá los nombres acá.
         - |
           set -e
           if [ -f "${TUGBOAT_ROOT}/db.sql.gz" ]; then
-            echo "→ Importando db.sql.gz"
+            echo "Importing db.sql.gz"
             zcat "${TUGBOAT_ROOT}/db.sql.gz" | mysql -h mysql -u tugboat -ptugboat tugboat
           elif [ -f "${TUGBOAT_ROOT}/db.sql" ]; then
-            echo "→ Importando db.sql"
+            echo "Importing db.sql"
             mysql -h mysql -u tugboat -ptugboat tugboat < "${TUGBOAT_ROOT}/db.sql"
           else
-            echo "⚠️ No se encontró db.sql.gz ni db.sql en la raíz del proyecto"
+            echo "ERROR: db.sql.gz or db.sql not found in project root"
             exit 1
           fi
 
-      # ── UPDATE: corre en cada rebuild (cuando hay un nuevo commit en el
-      # PR). Si el preview es nuevo, también corre antes de "build". ─────
+      # UPDATE: runs on every rebuild (new commit to the PR).
       update:
-        # CAMBIAR: si tu proyecto no usa Composer (poco común en Drupal
-        # 11), reemplazá este bloque por tu mecanismo de instalación.
         - export COMPOSER_MEMORY_LIMIT=-1
         - composer install --optimize-autoloader --no-interaction
 
-      # ── BUILD: corre después de "update". Aplica cambios sobre el
-      # backup importado en init. ────────────────────────────────────────
+      # BUILD: runs after update. Applies DB updates and config on top of the imported backup.
       build:
-        # Copia el settings.tugboat.php (ver ese archivo en esta misma
-        # carpeta) al sitio, para que apunte a la base de datos correcta
-        # dentro del preview.
         - cp "${TUGBOAT_ROOT}/.tugboat/settings.tugboat.php" "${DOCROOT}/sites/default/settings.tugboat.php"
-
-        # Asegura que settings.php incluya el archivo de arriba.
-        # CAMBIAR: si tu settings.php YA tiene una línea que hace este
-        # include condicional, borrá este paso (evitá duplicarlo).
         - |
           if ! grep -q "settings.tugboat.php" "${DOCROOT}/sites/default/settings.php"; then
-            echo "
-          if (getenv('TUGBOAT_PREVIEW_ID')) {
-            include __DIR__ . '/settings.tugboat.php';
-          }" >> "${DOCROOT}/sites/default/settings.php"
+            echo "if (getenv('TUGBOAT_PREVIEW_ID')) { include __DIR__ . '/settings.tugboat.php'; }" >> "${DOCROOT}/sites/default/settings.php"
           fi
-
-        # Directorios de archivos públicos/privados con permisos correctos.
         - mkdir -p "${DOCROOT}/sites/default/files/translations"
         - chgrp -R www-data "${DOCROOT}/sites/default/files"
         - find "${DOCROOT}/sites/default/files" -type d -exec chmod 2775 {} \;
         - find "${DOCROOT}/sites/default/files" -type f -exec chmod 0664 {} \;
-
-        # Aplica actualizaciones de base de datos e importa configuración.
         - drush updatedb --yes
-        - drush config:import --yes || echo "Sin configuración para importar o ya sincronizada"
+        - drush config:import --yes || echo "No config to import or already in sync"
         - drush cache:rebuild
-        - drush sqlsan
+        - drush sqlsan --yes
 
-      # ── ONLINE: corre DESPUÉS de que el preview ya está público y
-      # respondiendo. Ideal para correr tests automatizados contra el
-      # sitio real, ya levantado — esto es la parte "pipeline soñado". ──
+      # ONLINE: runs after the preview is live and responding.
       online:
-        # CAMBIAR / agregar tus propios checks. Estos son ejemplos:
-
-        # 1) Smoke test: la home responde 200 y no tiene errores fatales.
         - |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${TUGBOAT_DEFAULT_SERVICE_URL}")
           if [ "$STATUS" != "200" ]; then
-            echo "⚠️ La home respondió $STATUS en vez de 200"
+            echo "Home returned $STATUS instead of 200"
             exit 1
           fi
+        - cd "${TUGBOAT_ROOT}" && vendor/bin/phpunit --testsuite=unit,kernel --bootstrap="${DOCROOT}/core/tests/bootstrap.php" --configuration="${DOCROOT}/core" || echo "Tests failed - check preview log"
 
-        # 2) PHPUnit (Unit + Kernel) corriendo contra el código ya
-        # instalado en este preview — útil como doble chequeo además de
-        # GitHub Actions.
-        - cd "${TUGBOAT_ROOT}" && vendor/bin/phpunit --testsuite=unit,kernel --bootstrap="${DOCROOT}/core/tests/bootstrap.php" --configuration="${DOCROOT}/core" || echo "⚠️ Tests fallaron — revisá el log de este preview"
-
-        # 3) CAMBIAR: si tenés Playwright/Cypress configurado (ver
-        # tests/playwright/ en este mismo paquete), podés apuntarlo a
-        # $TUGBOAT_DEFAULT_SERVICE_URL en vez de a localhost:
-        # - cd "${TUGBOAT_ROOT}/tests/playwright" && BASE_URL="${TUGBOAT_DEFAULT_SERVICE_URL}" npx playwright test
-
-  # ──────────────────────────── Base de datos ───────────────────────────
   mysql:
-    # CAMBIAR a otra versión si tu Drupal 11 está certificado contra otra.
-    image: tugboatqa/mariadb:10.11
-    # Crea automáticamente una base "tugboat" con usuario/clave "tugboat".
-
-# ═══════════════════════════════════════════════════════════════════════
-# Funciones extra de Tugboat (gratis dentro de su tier, se activan desde
-# el dashboard, NO necesitan cambios en este archivo):
-#
-#   - Visual Diffs: compara screenshots entre el preview y una rama base,
-#     resalta diferencias visuales automáticamente en cada PR.
-#   - Google Lighthouse Integration: corre Lighthouse contra cada preview
-#     y reporta el score directo en el PR.
-#
-# Activalas en: Dashboard de Tugboat -> tu proyecto -> Settings.
-# ═══════════════════════════════════════════════════════════════════════
+    image: tugboatqa/mariadb:11.8
