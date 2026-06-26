@@ -82,11 +82,14 @@ jobs:
 
       - name: Instalar Terminus
         run: |
+          TERMINUS_VERSION=$(curl -fsSL \
+            "https://api.github.com/repos/pantheon-systems/terminus/releases/latest" \
+            | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
           curl -fsSL \
-            https://raw.githubusercontent.com/pantheon-systems/terminus-installer/master/builds/installer.phar \
-            -o installer.phar
-          php installer.phar install
-          echo "$HOME/terminus/vendor/bin" >> $GITHUB_PATH
+            "https://github.com/pantheon-systems/terminus/releases/download/${TERMINUS_VERSION}/terminus.phar" \
+            -o /usr/local/bin/terminus
+          chmod +x /usr/local/bin/terminus
+          terminus --version
 
       - name: Autenticar Terminus
         run: terminus auth:login --machine-token=${{ secrets.TERMINUS_TOKEN }}
