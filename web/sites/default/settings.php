@@ -884,6 +884,10 @@ if (getenv('CI') && file_exists(__DIR__ . '/settings.ci.php')) {
   include __DIR__ . '/settings.ci.php';
 }
 
+if (isset($_ENV['PANTHEON_ENVIRONMENT']) && file_exists(__DIR__ . '/settings.pantheon.php')) {
+  include __DIR__ . '/settings.pantheon.php';
+}
+
 /**
  * Load local development override configuration, if available.
  *
