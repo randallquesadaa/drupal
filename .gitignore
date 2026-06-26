@@ -117,11 +117,6 @@ Thumbs.db
 *.log
 /error_log
 
-# ─────────────────────────────── Backups de DB ────────────────────────────
-*.sql
-*.sql.gz
-*.sql.zip
-
 # ───────────────────────────────── Tugboat local ──────────────────────────
 # Si alguna vez usás el CLI de Tugboat localmente, esto evita basura.
 .tugboat-cache/
