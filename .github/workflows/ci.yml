@@ -11,8 +11,8 @@ env:
   # CAMBIAR: ruta del docroot. Común: "web" (drupal/recommended-project),
   # "docroot" (Acquia/Pantheon), o "" si Drupal vive en la raíz del repo.
   DRUPAL_ROOT: web
-  PHP_VERSION: "8.3"      # CAMBIAR si tu sitio requiere otra versión
-  NODE_VERSION: "20"      # CAMBIAR si tu tema/módulos requieren otra versión
+  PHP_VERSION: "8.5"      # CAMBIAR si tu sitio requiere otra versión
+  NODE_VERSION: "24"      # CAMBIAR si tu tema/módulos requieren otra versión
 
 jobs:
 

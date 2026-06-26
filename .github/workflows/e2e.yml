@@ -8,8 +8,8 @@ on:
 
 env:
   DRUPAL_ROOT: web        # CAMBIAR si tu docroot no es "web"
-  PHP_VERSION: "8.3"       # CAMBIAR
-  NODE_VERSION: "20"       # CAMBIAR
+  PHP_VERSION: "8.5"       # CAMBIAR
+  NODE_VERSION: "24"       # CAMBIAR
 
 jobs:
   e2e:
