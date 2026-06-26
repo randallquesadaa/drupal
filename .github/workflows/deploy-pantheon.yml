@@ -5,6 +5,7 @@ on:
     workflows: ["CI"]
     types: [completed]
     branches: [main]   # CAMBIAR si tu rama principal tiene otro nombre
+  workflow_dispatch:   # permite dispararlo manualmente desde GitHub UI
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,7 +15,7 @@ jobs:
   deploy:
     name: Deploy a Pantheon
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     env:
       TERMINUS_SITE: drupal-placeholder   # CAMBIAR: machine name de tu sitio en Pantheon
