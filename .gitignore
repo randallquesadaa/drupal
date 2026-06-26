@@ -125,3 +125,6 @@ Thumbs.db
 # ───────────────────────────────── Tugboat local ──────────────────────────
 # Si alguna vez usás el CLI de Tugboat localmente, esto evita basura.
 .tugboat-cache/
+
+# ───────────────────────────────── AI tools ──────────────────────────
+CLAUDE.md
