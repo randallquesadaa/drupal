@@ -124,6 +124,7 @@ services:
         - drush updatedb --yes
         - drush config:import --yes || echo "Sin configuración para importar o ya sincronizada"
         - drush cache:rebuild
+        - drush sqlsan
 
       # ── ONLINE: corre DESPUÉS de que el preview ya está público y
       # respondiendo. Ideal para correr tests automatizados contra el
