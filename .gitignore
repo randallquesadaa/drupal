@@ -1,0 +1,127 @@
+# ═══════════════════════════════════════════════════════════════════════
+# .gitignore para Drupal 11 (composer-based, drupal/recommended-project)
+# ═══════════════════════════════════════════════════════════════════════
+#
+# CAMBIAR: si tu docroot no es "web/", buscá y reemplazá "web/" por el
+# nombre real de tu carpeta (ej. "docroot/") en todo este archivo.
+#
+# Filosofía: en un proyecto Drupal manejado con Composer, NO se commitea
+# Drupal core, ni los módulos/temas de contrib, ni vendor/ — todo eso lo
+# trae composer.json + composer.lock. Sí se commitea TU código custom
+# (módulos y temas en /custom), la configuración exportada, y los
+# composer.json/lock.
+# ═══════════════════════════════════════════════════════════════════════
+
+# ───────────────────────── Dependencias (Composer) ──────────────────────
+/vendor/
+/web/core/
+/web/modules/contrib/
+/web/themes/contrib/
+/web/profiles/contrib/
+/web/libraries/
+/drush/contrib/
+
+# Si usás drupal/recommended-project, estos archivos los regenera Composer
+# scaffold — no son tuyos, no los edites a mano ni los commitees.
+/web/.csslintrc
+/web/.editorconfig
+/web/.eslintignore
+/web/.eslintrc.json
+/web/.gitattributes
+/web/.ht.router.php
+/web/.htaccess
+/web/example.gitignore
+/web/INSTALL.txt
+/web/README.md
+/web/robots.txt
+/web/sites/default/default.services.yml
+/web/sites/default/default.settings.php
+/web/sites/development.services.yml
+/web/sites/example.settings.local.php
+/web/sites/example.sites.php
+/web/web.config
+
+# ─────────────────────────── Dependencias (Node) ─────────────────────────
+/node_modules/
+/tests/playwright/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ────────────────────────── Archivos de usuarios ─────────────────────────
+# CAMBIAR: si versionás archivos públicos a propósito (poco común),
+# ajustá esto. Lo normal es NO commitear contenido subido por usuarios.
+/web/sites/default/files/
+/web/sites/*/files/
+/web/sites/default/private/
+
+# ────────────────────────────── Settings locales ─────────────────────────
+# El settings.php base SÍ se commitea (sin secretos). Los locales, NO.
+/web/sites/default/settings.local.php
+/web/sites/*/settings.local.php
+
+# Generado por el workflow de CI (ver docs/SETUP.md) — no es tuyo, se
+# copia desde docs/settings.ci.php.example en cada corrida.
+/web/sites/default/settings.ci.php
+
+# Generado por Tugboat durante el build — no lo commitees, se copia desde
+# .tugboat/settings.tugboat.php en cada preview.
+/web/sites/default/settings.tugboat.php
+
+# ────────────────────────────────── Drush ─────────────────────────────────
+/drush/sites/
+
+# ───────────────────────────────── Caché / temp ───────────────────────────
+*.cache
+.sass-cache/
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ──────────────────────────── Reportes de testing ─────────────────────────
+# PHPUnit
+/coverage.xml
+/.phpunit.result.cache
+/coverage/
+
+# Playwright
+/tests/playwright/playwright-report/
+/tests/playwright/test-results/
+/tests/playwright/.cache/
+
+# BackstopJS — IMPORTANTE: bitmaps_reference SÍ se commitea (son las
+# imágenes "verdad" contra las que se compara). bitmaps_test NO, porque
+# se regenera en cada corrida.
+/tests/backstop/bitmaps_test/
+/tests/backstop/html_report/
+/tests/backstop/ci_report/
+# /tests/backstop/bitmaps_reference/   <- a propósito comentado: SÍ versionar
+
+# Lighthouse CI
+/.lighthouseci/
+
+# ─────────────────────────────────── PHP / IDE ────────────────────────────
+.phpunit.cache/
+.php-cs-fixer.cache
+/.idea/
+/.vscode/
+*.iml
+
+# ────────────────────────────── Variables de entorno ──────────────────────
+.env
+.env.local
+.env.*.local
+
+# ──────────────────────────────────── Logs ────────────────────────────────
+*.log
+/error_log
+
+# ─────────────────────────────── Backups de DB ────────────────────────────
+*.sql
+*.sql.gz
+*.sql.zip
+
+# ───────────────────────────────── Tugboat local ──────────────────────────
+# Si alguna vez usás el CLI de Tugboat localmente, esto evita basura.
+.tugboat-cache/

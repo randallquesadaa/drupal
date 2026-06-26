@@ -1,0 +1,107 @@
+name: Deploy - Pantheon
+
+# ═══════════════════════════════════════════════════════════════════════
+# USAR ESTE ARCHIVO SI: tu sitio está hosteado en Pantheon.
+#
+# Cómo funciona: igual que Acquia, Pantheon usa git push para deployar al
+# ambiente "dev". Este workflow hace push a Pantheon y después usa Terminus
+# (CLI oficial de Pantheon) para promover el cambio a través de los
+# ambientes (dev -> test -> live) y ejecutar tareas de Drupal.
+# ═══════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]   # CAMBIAR
+
+jobs:
+  deploy:
+    name: Deploy a Pantheon
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    env:
+      TERMINUS_SITE: TU-SITIO-PANTHEON   # CAMBIAR: nombre del sitio en Pantheon
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"   # CAMBIAR
+          tools: composer:v2
+
+      - name: Composer install (producción)
+        run: composer install --no-dev --optimize-autoloader --no-progress
+
+      - name: Setup SSH para Pantheon
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PANTHEON_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H codeserver.dev.${{ secrets.PANTHEON_SITE_UUID }}.drush.in >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Preparar rama de build con dependencias
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git checkout -b pantheon-deploy
+          git add -f vendor/ 2>/dev/null || true
+          git commit -m "Build automático para deploy a Pantheon [skip ci]" || echo "Sin cambios para commitear"
+
+      - name: Push al ambiente dev de Pantheon
+        # CAMBIAR la URL: la encontrás en el dashboard de Pantheon ->
+        # tu sitio -> Connection Info (en modo Git).
+        run: |
+          git remote add pantheon ssh://codeserver.dev.${{ secrets.PANTHEON_SITE_UUID }}@codeserver.dev.${{ secrets.PANTHEON_SITE_UUID }}.drush.in:2222/~/repository.git
+          git push pantheon pantheon-deploy:master --force
+
+      - name: Instalar Terminus
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/pantheon-systems/terminus-installer/master/builds/installer.phar -o installer.phar
+          php installer.phar install
+          echo "$HOME/terminus/vendor/bin" >> $GITHUB_PATH
+
+      - name: Autenticar Terminus
+        run: terminus auth:login --machine-token=${{ secrets.TERMINUS_TOKEN }}
+
+      - name: Tareas post-deploy en "dev" (updb, cim, cache-rebuild)
+        run: |
+          terminus drush ${{ env.TERMINUS_SITE }}.dev -- deploy -y
+
+      - name: Promover dev -> test
+        # CAMBIAR: borrá este paso y el siguiente si tu flujo no usa
+        # ambientes intermedios, o si preferís promover manualmente.
+        run: terminus env:deploy ${{ env.TERMINUS_SITE }}.test --note="Deploy automático desde GitHub Actions" -y
+
+      - name: Promover test -> live
+        run: terminus env:deploy ${{ env.TERMINUS_SITE }}.live --note="Deploy automático desde GitHub Actions" -y
+
+      - name: Notificar resultado
+        if: always()
+        run: echo "Deploy a Pantheon finalizado con status ${{ job.status }}"
+
+# ═══════════════════════════════════════════════════════════════════════
+# Secrets necesarios:
+#   PANTHEON_SSH_KEY     -> llave privada SSH registrada en tu cuenta Pantheon
+#   PANTHEON_SITE_UUID   -> UUID del sitio (Dashboard -> tu sitio -> Connection Info)
+#   TERMINUS_TOKEN        -> Machine Token (Pantheon Dashboard -> Account -> Machine Tokens)
+#
+# Variable a cambiar dentro del archivo:
+#   TERMINUS_SITE -> el "machine name" del sitio en Pantheon
+#
+# Pasos previos en Pantheon:
+#   1. Agregá tu clave pública SSH en Account -> SSH Keys.
+#   2. Poné el ambiente "dev" en modo Git (Dashboard -> Dev -> Connection
+#      Mode -> Git). En modo SFTP no se puede pushear código.
+#   3. Generá un Machine Token en Account -> Machine Tokens.
+#
+# Alternativa más simple: Pantheon también soporta "Integrated Composer",
+# que corre composer install de su lado al recibir el push — en ese caso
+# no necesitás commitear vendor/ y podés simplificar este workflow a solo
+# un git push + terminus env:deploy.
+# ═══════════════════════════════════════════════════════════════════════

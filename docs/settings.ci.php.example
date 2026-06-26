@@ -1,0 +1,44 @@
+<?php
+
+/**
+ * Settings usados SOLO en GitHub Actions (CI).
+ *
+ * Copiá este archivo a web/sites/default/settings.ci.php
+ * (ajustá la ruta si tu docroot no es "web/") e incluilo desde tu
+ * settings.php real con:
+ *
+ *   if (getenv('CI')) {
+ *     include __DIR__ . '/settings.ci.php';
+ *   }
+ *
+ * CAMBIAR: estos valores deben coincidir con el servicio "mysql" definido
+ * en .github/workflows/ci.yml
+ */
+
+$databases['default']['default'] = [
+  'database' => getenv('DB_NAME') ?: 'drupal',
+  'username' => getenv('DB_USER') ?: 'drupal',
+  'password' => getenv('DB_PASS') ?: 'drupal',
+  'host' => getenv('DB_HOST') ?: '127.0.0.1',
+  'port' => getenv('DB_PORT') ?: '3306',
+  'driver' => 'mysql',
+  'prefix' => '',
+];
+
+// Hash salt cualquiera, solo para CI (NUNCA usar este valor en producción).
+$settings['hash_salt'] = 'ci-only-not-secret-' . bin2hex(random_bytes(16));
+
+// Desactivar el CSS/JS aggregation hace los tests más rápidos de debuggear,
+// pero si querés que Lighthouse mida algo realista, dejalo en TRUE como en
+// producción. CAMBIAR según qué estés priorizando.
+$config['system.performance']['css']['preprocess'] = TRUE;
+$config['system.performance']['js']['preprocess'] = TRUE;
+
+// Evita que Drupal intente mandar emails reales durante los tests.
+$config['system.mail']['interface']['default'] = 'test_mail_collector';
+
+// Trusted host pattern para el servidor que levanta drush runserver en CI.
+$settings['trusted_host_patterns'] = [
+  '^127\.0\.0\.1$',
+  '^localhost$',
+];

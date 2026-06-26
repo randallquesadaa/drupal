@@ -1,0 +1,75 @@
+name: Deploy - SSH genérico (servidor propio / VPS)
+
+# ═══════════════════════════════════════════════════════════════════════
+# USAR ESTE ARCHIVO SI: tenés tu propio servidor o VPS (no Acquia, no
+# Pantheon, no Platform.sh, no Lagoon) y deployás vía SSH/rsync.
+#
+# Si usás alguna de esas plataformas, BORRÁ este archivo y usá en su lugar:
+#   - deploy-acquia.yml
+#   - deploy-pantheon.yml
+#   - deploy-platformsh.yml
+#   - deploy-lagoon.yml
+# Ver docs/DEPLOY-OPTIONS.md para la comparación completa.
+# ═══════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]   # CAMBIAR si tu rama de producción se llama distinto
+
+jobs:
+  deploy:
+    name: Deploy a producción (SSH)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"   # CAMBIAR
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Composer install (producción, sin dev deps)
+        run: composer install --no-dev --optimize-autoloader --no-progress
+
+      - name: Sincronizar archivos
+        # CAMBIAR rutas y excludes según tu estructura. OJO con no pisar
+        # sites/default/files ni settings.php remoto.
+        run: |
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='web/sites/default/files' \
+            --exclude='web/sites/default/settings.php' \
+            --exclude='web/sites/default/settings.local.php' \
+            -e "ssh -i ~/.ssh/id_rsa" \
+            ./ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
+
+      - name: Ejecutar tareas post-deploy (drush)
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && vendor/bin/drush deploy -y"
+          # "drush deploy" corre updb, cim, cache-rebuild y deploy:hook
+          # en orden. Requiere Drush 10.4+ / Drupal 9+.
+
+      - name: Notificar resultado
+        if: always()
+        run: echo "Deploy finalizado con status ${{ job.status }}"
+
+# ═══════════════════════════════════════════════════════════════════════
+# Secrets necesarios (Settings → Secrets and variables → Actions):
+#   DEPLOY_SSH_KEY   -> llave privada SSH con acceso al servidor
+#   DEPLOY_HOST      -> IP o dominio del servidor
+#   DEPLOY_USER      -> usuario SSH
+#   DEPLOY_PATH      -> ruta absoluta del sitio en el servidor
+# ═══════════════════════════════════════════════════════════════════════

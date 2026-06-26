@@ -1,0 +1,171 @@
+name: Quality (Lighthouse, A11y, Visual Regression)
+
+# CAMBIAR: igual que e2e.yml, corre en PR por defecto.
+on:
+  pull_request:
+    branches: [main, develop]
+
+env:
+  DRUPAL_ROOT: web
+  PHP_VERSION: "8.3"
+  NODE_VERSION: "20"
+
+jobs:
+
+  lighthouse-and-a11y:
+    name: Lighthouse + Accesibilidad (pa11y)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: drupal
+          MYSQL_USER: drupal
+          MYSQL_PASSWORD: drupal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    env:
+      SIMPLETEST_DB: "mysql://drupal:drupal@127.0.0.1:3306/drupal"
+      CI: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2, drush
+          extensions: mbstring, gd, pdo_mysql, zip
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - run: composer install --no-progress --prefer-dist
+
+      - name: Copiar settings.ci.php
+        run: |
+          if [ ! -f "${{ env.DRUPAL_ROOT }}/sites/default/settings.ci.php" ]; then
+            cp docs/settings.ci.php.example "${{ env.DRUPAL_ROOT }}/sites/default/settings.ci.php"
+          fi
+
+      - name: Instalar el sitio
+        run: |
+          vendor/bin/drush site-install standard \
+            --db-url="${{ env.SIMPLETEST_DB }}" -y
+          vendor/bin/drush config:import -y || true
+          # Importante para que Lighthouse mida algo realista:
+          vendor/bin/drush cache:rebuild
+
+      - name: Levantar servidor
+        run: |
+          vendor/bin/drush runserver 127.0.0.1:8080 &
+          sleep 5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Lighthouse CI
+        run: |
+          npm install -g @lhci/cli@0.13.x
+          lhci autorun --config=.lighthouserc.json
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: Accesibilidad con pa11y-ci
+        run: |
+          npm install -g pa11y-ci
+          # CAMBIAR: agregá tantas URLs como páginas clave quieras auditar
+          pa11y-ci http://127.0.0.1:8080 http://127.0.0.1:8080/user/login
+
+  visual-regression:
+    name: Regresión visual (BackstopJS)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: drupal
+          MYSQL_USER: drupal
+          MYSQL_PASSWORD: drupal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    env:
+      SIMPLETEST_DB: "mysql://drupal:drupal@127.0.0.1:3306/drupal"
+      CI: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2, drush
+          extensions: mbstring, gd, pdo_mysql, zip
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - run: composer install --no-progress --prefer-dist
+
+      - name: Copiar settings.ci.php
+        run: |
+          if [ ! -f "${{ env.DRUPAL_ROOT }}/sites/default/settings.ci.php" ]; then
+            cp docs/settings.ci.php.example "${{ env.DRUPAL_ROOT }}/sites/default/settings.ci.php"
+          fi
+
+      - name: Instalar el sitio
+        run: |
+          vendor/bin/drush site-install standard \
+            --db-url="${{ env.SIMPLETEST_DB }}" -y
+          vendor/bin/drush config:import -y || true
+
+      - name: Levantar servidor
+        run: |
+          vendor/bin/drush runserver 127.0.0.1:8081 &
+          sleep 5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Instalar BackstopJS
+        run: npm install -g backstopjs
+
+      - name: Correr comparación visual
+        working-directory: tests/backstop
+        run: |
+          # IMPORTANTE: la primera vez no hay imágenes de referencia.
+          # Generalas localmente con "backstop reference" y commiteá
+          # tests/backstop/bitmaps_reference/ antes de confiar en este paso.
+          backstop test --config=backstop.json || echo "⚠️ Hay diffs visuales — revisá el reporte en el artifact"
+
+      - name: Subir reporte visual
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backstop-report
+          path: tests/backstop/bitmaps_test/
+          retention-days: 7

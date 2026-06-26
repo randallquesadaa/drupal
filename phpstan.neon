@@ -1,0 +1,29 @@
+# Requiere: composer require --dev mglaman/phpstan-drupal phpstan/extension-installer
+# Si usás extension-installer, este include puede no ser necesario (se
+# autodetecta). Lo dejamos explícito para que sea más fácil de entender.
+
+includes:
+  - vendor/mglaman/phpstan-drupal/extension.neon
+
+parameters:
+  # CAMBIAR: nivel de estrictez. 0 = muy permisivo, 9 = máximo.
+  # Para un Drupal típico, arrancar en 4-5 y subir de a poco es realista.
+  level: 5
+
+  # CAMBIAR: rutas de tu código custom.
+  paths:
+    - web/modules/custom
+    - web/themes/custom
+
+  # CAMBIAR: la ruta a tu Drupal root si no es "web/"
+  drupal:
+    drupal_root: web
+
+  excludePaths:
+    - */tests/fixtures/*
+    - */node_modules/*
+
+  ignoreErrors:
+    # Ejemplos de excepciones comunes en proyectos Drupal — descomentar
+    # según necesites, idealmente con justificación.
+    # - '#Call to an undefined method Drupal\\Core\\Entity\\EntityInterface::.*#'

@@ -1,0 +1,45 @@
+Agregá estas dependencias a tu composer.json raíz (sección "require-dev").
+No reemplaces tu composer.json completo — fusioná manualmente estas líneas,
+o corré los comandos de "composer require" indicados.
+
+────────────────────────────────────────────────────────────────────────
+Comandos a correr (recomendado, así composer resuelve versiones compatibles):
+────────────────────────────────────────────────────────────────────────
+
+composer require --dev drupal/coder
+composer require --dev squizlabs/php_codesniffer
+composer require --dev mglaman/phpstan-drupal
+composer require --dev phpstan/extension-installer
+composer require --dev phpspec/prophecy-phpunit
+composer require --dev mglaman/composer-drupal-security-advisories:dev-latest
+composer require --dev drupal/core-dev --update-with-all-dependencies
+
+────────────────────────────────────────────────────────────────────────
+Resultado esperado en composer.json (aproximado — las versiones exactas
+las decide Composer al resolver):
+────────────────────────────────────────────────────────────────────────
+
+{
+  "require-dev": {
+    "drupal/coder": "^8.3",
+    "squizlabs/php_codesniffer": "^3.9",
+    "mglaman/phpstan-drupal": "^1.2",
+    "phpstan/extension-installer": "^1.4",
+    "phpspec/prophecy-phpunit": "^2.3",
+    "mglaman/composer-drupal-security-advisories": "dev-latest",
+    "drupal/core-dev": "^10.2"
+  },
+  "config": {
+    "allow-plugins": {
+      "phpstan/extension-installer": true,
+      "composer/installers": true,
+      "drupal/core-composer-scaffold": true
+    }
+  }
+}
+
+NOTA sobre "mglaman/composer-drupal-security-advisories": este paquete no
+se "usa" en código, su sola presencia en composer.json hace que
+`composer install` o `composer update` FALLEN si algún paquete instalado
+tiene una vulnerabilidad reportada. Es la forma más simple y gratuita de
+tener alertas de seguridad sin depender de un servicio externo.

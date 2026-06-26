@@ -1,0 +1,99 @@
+name: Deploy - Acquia Cloud
+
+# ═══════════════════════════════════════════════════════════════════════
+# USAR ESTE ARCHIVO SI: tu sitio está hosteado en Acquia Cloud.
+#
+# Cómo funciona Acquia: el deploy se hace haciendo "git push" a un
+# repositorio Git propio de Acquia (no tu repo de GitHub). Acquia NO corre
+# "composer install" en su lado por defecto, así que este workflow:
+#   1. Instala dependencias de producción en el runner de GitHub.
+#   2. Commitea el resultado (vendor/, assets compilados) en una rama
+#      "de build" separada.
+#   3. Pushea esa rama al remoto Git de Acquia.
+#   4. El push a la rama mapeada (ej. "main") dispara el deploy automático
+#      al ambiente correspondiente en Acquia.
+#
+# Si tu equipo ya usa Acquia BLT con su propio pipeline de CI, probablemente
+# no necesites este archivo — usá el de BLT en su lugar.
+# ═══════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]   # CAMBIAR si tu rama de producción se llama distinto
+
+jobs:
+  deploy:
+    name: Deploy a Acquia Cloud
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # necesario para poder crear/empujar la rama de build
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"   # CAMBIAR
+          tools: composer:v2
+
+      - name: Composer install (producción)
+        run: composer install --no-dev --optimize-autoloader --no-progress
+
+      - name: Compilar assets del tema (si aplica)
+        # CAMBIAR: borrá este paso si tu tema no necesita build, o
+        # reemplazá por tu comando real (gulp, webpack, vite, etc).
+        run: |
+          if [ -f web/themes/custom/*/package.json ]; then
+            echo "Compilá tus assets acá si corresponde"
+          fi
+
+      - name: Setup SSH para Acquia
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.ACQUIA_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H svn-VENDORNAME.hosted.acquia-sites.com >> ~/.ssh/known_hosts 2>/dev/null || true
+          # CAMBIAR "svn-VENDORNAME..." si Acquia te dio otro host de git.
+
+      - name: Preparar rama de build con dependencias
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git checkout -b acquia-deploy
+          git add -f vendor/ web/core web/modules/contrib web/themes/contrib 2>/dev/null || true
+          git commit -m "Build automático para deploy a Acquia [skip ci]" || echo "Sin cambios para commitear"
+
+      - name: Push al remoto de Acquia
+        # CAMBIAR la URL del remoto: la encontrás en Acquia Cloud UI ->
+        # tu aplicación -> "Code" -> Git URL.
+        run: |
+          git remote add acquia ${{ secrets.ACQUIA_GIT_URL }}
+          git push acquia acquia-deploy:main --force
+          # CAMBIAR "main" si tu ambiente de producción en Acquia está
+          # mapeado a otra rama (ej. "prod").
+
+      - name: Notificar resultado
+        if: always()
+        run: echo "Deploy a Acquia finalizado con status ${{ job.status }}"
+
+# ═══════════════════════════════════════════════════════════════════════
+# Secrets necesarios:
+#   ACQUIA_SSH_KEY   -> llave privada SSH registrada en tu cuenta de Acquia
+#   ACQUIA_GIT_URL   -> URL del remoto git de Acquia (formato
+#                        VENDORNAME@svn-VENDOR.hosted.acquia-sites.com:VENDOR.git)
+#
+# Pasos previos en Acquia Cloud:
+#   1. Agregá la clave pública SSH en Account Settings -> SSH Keys.
+#   2. Confirmá el modo de la app: tiene que estar en modo "Git" (no
+#      "Composer build" automático), si vas a hacer el build vos mismo
+#      en GitHub Actions como en este workflow.
+#   3. Alternativa más simple (sin este workflow): activá Acquia Cloud
+#      Pipelines o Acquia CI/CD desde la consola de Acquia, que ya corre
+#      composer install del lado de ellos al detectar push a GitHub.
+#      Revisá el plan de tu suscripción — esa función puede no estar
+#      incluida en todos los niveles.
+# ═══════════════════════════════════════════════════════════════════════

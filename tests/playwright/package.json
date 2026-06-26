@@ -1,0 +1,14 @@
+{
+  "name": "drupal-e2e-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tests E2E con Playwright para el sitio Drupal.",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.0"
+  }
+}

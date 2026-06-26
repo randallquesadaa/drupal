@@ -1,0 +1,225 @@
+name: CI
+
+# CAMBIAR: ajustá las ramas según tu flujo de Git.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  # CAMBIAR: ruta del docroot. Común: "web" (drupal/recommended-project),
+  # "docroot" (Acquia/Pantheon), o "" si Drupal vive en la raíz del repo.
+  DRUPAL_ROOT: web
+  PHP_VERSION: "8.3"      # CAMBIAR si tu sitio requiere otra versión
+  NODE_VERSION: "20"      # CAMBIAR si tu tema/módulos requieren otra versión
+
+jobs:
+
+  # ───────────────────────────── LINT ─────────────────────────────
+  lint:
+    name: Lint (PHPCS, PHPStan, ESLint, Stylelint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Composer install
+        run: composer install --no-progress --prefer-dist
+
+      - name: PHPCS (Drupal + DrupalPractice)
+        run: |
+          # CAMBIAR rutas dentro de phpcs.xml si tu código custom no está en
+          # web/modules/custom o web/themes/custom
+          vendor/bin/phpcs --standard=phpcs.xml
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --configuration=phpstan.neon
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Instalar dependencias JS
+        # CAMBIAR: si tu package.json no está en la raíz, agregá
+        # working-directory acá.
+        run: npm ci
+        continue-on-error: false
+
+      - name: ESLint
+        run: npx eslint "${{ env.DRUPAL_ROOT }}/modules/custom/**/*.js" "${{ env.DRUPAL_ROOT }}/themes/custom/**/*.js" --no-error-on-unmatched-pattern
+
+      - name: Stylelint
+        run: npx stylelint "${{ env.DRUPAL_ROOT }}/themes/custom/**/*.{css,scss}" --allow-empty-input
+
+  # ──────────────────────────── SEGURIDAD ─────────────────────────
+  security:
+    name: Auditoría de dependencias
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Composer install
+        run: composer install --no-progress --prefer-dist
+
+      - name: Composer audit
+        run: composer audit
+
+      - name: Drupal Security Advisories check
+        # Requiere agregar a tu composer.json raíz, una sola vez:
+        #   composer require --dev mglaman/composer-drupal-security-advisories:dev-latest
+        # Esto hace que `composer install` falle si algún módulo instalado
+        # tiene una vulnerabilidad conocida. No necesita un paso aparte si
+        # ya está en composer.json, pero lo dejamos explícito para que se
+        # vea en el log de CI.
+        run: |
+          composer show mglaman/composer-drupal-security-advisories || echo "⚠️ CAMBIAR - agregá mglaman/composer-drupal-security-advisories a composer.json (ver comentario arriba)"
+
+  # ─────────────────── UNIT/KERNEL TESTS + BUILD ──────────────────
+  build-and-test:
+    name: Build sitio + Unit/Kernel tests
+    runs-on: ubuntu-latest
+    needs: security
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: drupal       # CAMBIAR si querés otro nombre
+          MYSQL_USER: drupal           # CAMBIAR
+          MYSQL_PASSWORD: drupal       # CAMBIAR
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      # ── Alternativa PostgreSQL (descomentar y borrar el bloque mysql) ──
+      # postgres:
+      #   image: postgres:15
+      #   env:
+      #     POSTGRES_DB: drupal
+      #     POSTGRES_USER: drupal
+      #     POSTGRES_PASSWORD: drupal
+      #   ports:
+      #     - 5432:5432
+      #   options: >-
+      #     --health-cmd pg_isready
+      #     --health-interval 10s
+      #     --health-timeout 5s
+      #     --health-retries 5
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: drupal
+      DB_USER: drupal
+      DB_PASS: drupal
+      SIMPLETEST_DB: "mysql://drupal:drupal@127.0.0.1:3306/drupal"
+      SIMPLETEST_BASE_URL: "http://127.0.0.1:8080"
+      CI: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2, drush
+          extensions: mbstring, gd, pdo_mysql, zip, opcache
+          coverage: xdebug
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Composer install
+        run: composer install --no-progress --prefer-dist
+
+      - name: Copiar settings.ci.php
+        # CAMBIAR la ruta de origen/destino si tu docroot no es "web/"
+        run: |
+          if [ ! -f "${{ env.DRUPAL_ROOT }}/sites/default/settings.ci.php" ]; then
+            cp docs/settings.ci.php.example "${{ env.DRUPAL_ROOT }}/sites/default/settings.ci.php"
+            echo "⚠️ Usando el settings.ci.php de ejemplo. Reemplazalo por el tuyo si ya lo personalizaste."
+          fi
+
+      - name: Instalar el sitio (drush site-install)
+        # CAMBIAR "standard" por tu perfil de instalación real
+        run: |
+          vendor/bin/drush site-install standard \
+            --db-url="${{ env.SIMPLETEST_DB }}" \
+            --site-name="CI Build" \
+            --account-name=admin \
+            --account-pass=admin \
+            -y
+
+      - name: Importar configuración
+        # CAMBIAR: agregá --partial si usás Config Split u otra estrategia
+        run: vendor/bin/drush config:import -y || echo "Sin config para importar o ya sincronizada"
+
+      - name: Levantar servidor de pruebas
+        run: |
+          vendor/bin/drush runserver 127.0.0.1:8080 &
+          sleep 5
+
+      - name: PHPUnit (Unit + Kernel)
+        # CAMBIAR el group/testsuite según cómo organices tus tests
+        run: |
+          vendor/bin/phpunit \
+            --testsuite=unit,kernel \
+            --coverage-clover=coverage.xml \
+            --bootstrap="${{ env.DRUPAL_ROOT }}/core/tests/bootstrap.php" \
+            --configuration="${{ env.DRUPAL_ROOT }}/core"
+
+      - name: Subir cobertura a Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false  # CAMBIAR a true si querés que bloquee el merge
+
+      - name: Guardar build del sitio para otros jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: drupal-build
+          path: |
+            .
+            !vendor/**/tests
+          retention-days: 1

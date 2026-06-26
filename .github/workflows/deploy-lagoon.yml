@@ -1,0 +1,66 @@
+name: Deploy - Lagoon (Amazee.io / self-hosted)
+
+# ═══════════════════════════════════════════════════════════════════════
+# USAR ESTE ARCHIVO SI: tu sitio está hosteado en Lagoon (amazee.io o tu
+# propia instancia de Lagoon).
+#
+# Lagoon normalmente se conecta directo a tu repo (webhook de GitHub) y
+# buildea/deploya solo con el push — en ese caso NO necesitás este
+# workflow para nada, Lagoon ya escucha el push directamente.
+#
+# Usá este archivo solo si:
+#   - Tu organización prefiere triggerear el deploy explícitamente desde
+#     GitHub Actions (por ejemplo vía la Lagoon API) en vez de un webhook
+#     automático, para tener más control sobre el "gate" de calidad.
+# ═══════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]   # CAMBIAR
+
+jobs:
+  deploy:
+    name: Deploy a Lagoon
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Triggerear deploy vía Lagoon API (GraphQL)
+        # CAMBIAR la URL del endpoint si usás una instancia self-hosted
+        # de Lagoon en vez de amazee.io.
+        run: |
+          curl -s -X POST https://api.lagoon.amazeeio.cloud/graphql \
+            -H "Authorization: Bearer ${{ secrets.LAGOON_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "query": "mutation deployEnvironmentBranch($project: String!, $branch: String!) { deployEnvironmentBranch(input: {project: {name: $project}, branchName: $branch}) }",
+              "variables": {
+                "project": "'"${{ secrets.LAGOON_PROJECT_NAME }}"'",
+                "branch": "main"
+              }
+            }'
+          # CAMBIAR "main" si tu ambiente productivo en Lagoon está
+          # mapeado a otra rama.
+
+      - name: Notificar resultado
+        if: always()
+        run: echo "Deploy a Lagoon disparado con status ${{ job.status }}"
+
+# ═══════════════════════════════════════════════════════════════════════
+# Secrets necesarios:
+#   LAGOON_API_TOKEN     -> token de la API GraphQL de Lagoon (lo generás
+#                            con "lagoon login" + "lagoon token" usando el
+#                            CLI de Lagoon, o desde la UI si tu instancia
+#                            lo soporta)
+#   LAGOON_PROJECT_NAME  -> nombre del proyecto en Lagoon
+#
+# Alternativa más simple y más "Lagoon-idiomática": en vez de este
+# workflow, configurá el webhook nativo de Lagoon en tu repo de GitHub
+# (Settings -> Webhooks) y dejá que Lagoon escuche el push directamente.
+# Para que respete el resultado de CI, usá branch protection rules en
+# GitHub para que nada llegue a "main" sin pasar los checks.
+# ═══════════════════════════════════════════════════════════════════════

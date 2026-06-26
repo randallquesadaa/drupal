@@ -1,0 +1,74 @@
+name: Deploy - Platform.sh
+
+# ═══════════════════════════════════════════════════════════════════════
+# USAR ESTE ARCHIVO SI: tu sitio está hosteado en Platform.sh / Upsun.
+#
+# IMPORTANTE: Platform.sh, a diferencia de Acquia/Pantheon, generalmente
+# se conecta directamente a tu repo de GitHub desde su propio dashboard
+# (Settings -> Integrations -> GitHub) y hace build + deploy automático
+# en cada push a las ramas que vos definas — SIN necesitar este workflow.
+#
+# Usá este archivo solo si:
+#   - Preferís controlar el deploy explícitamente desde GitHub Actions
+#     (por ejemplo, para que dependa de que el workflow CI haya pasado), o
+#   - Necesitás triggerear un deploy manual a un ambiente específico.
+# ═══════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]   # CAMBIAR
+
+jobs:
+  deploy:
+    name: Deploy a Platform.sh
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Instalar Platform.sh CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/platformsh/cli/main/installer.sh | bash
+          echo "$HOME/.platformsh/bin" >> $GITHUB_PATH
+
+      - name: Autenticar Platform.sh CLI
+        run: platform auth:api-token-login --token=${{ secrets.PLATFORMSH_CLI_TOKEN }}
+
+      - name: Setup SSH (Platform.sh usa tu repo Git directamente)
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PLATFORMSH_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Push al proyecto de Platform.sh
+        # CAMBIAR PLATFORMSH_PROJECT_ID por el ID de tu proyecto
+        # (lo ves en el dashboard, en la URL del proyecto).
+        run: |
+          platform push --project=${{ secrets.PLATFORMSH_PROJECT_ID }} \
+            --environment=main \
+            --yes
+          # CAMBIAR "main" por el nombre de tu ambiente productivo en
+          # Platform.sh si es distinto.
+
+      - name: Notificar resultado
+        if: always()
+        run: echo "Deploy a Platform.sh finalizado con status ${{ job.status }}"
+
+# ═══════════════════════════════════════════════════════════════════════
+# Secrets necesarios:
+#   PLATFORMSH_CLI_TOKEN   -> API token (Platform.sh Console -> Account
+#                              Settings -> API tokens)
+#   PLATFORMSH_SSH_KEY      -> llave privada SSH registrada en tu cuenta
+#   PLATFORMSH_PROJECT_ID   -> ID del proyecto
+#
+# Recomendación: para la mayoría de los casos, es más simple y más
+# "gratis" (no gasta minutos de Actions en el deploy en sí) usar la
+# integración nativa de Platform.sh con GitHub y dejar que ESTE workflow
+# solo se quede como gate de calidad — usá branch protection rules para
+# que Platform.sh no pueda recibir push directo sin pasar por CI.
+# ═══════════════════════════════════════════════════════════════════════
