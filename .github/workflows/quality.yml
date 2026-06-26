@@ -88,6 +88,8 @@ jobs:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 
       - name: Accesibilidad con pa11y-ci
+        env:
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/google-chrome-stable
         run: |
           # CAMBIAR: agregá tantas URLs como páginas clave quieras auditar
           pnpm dlx pa11y-ci http://127.0.0.1:8080 http://127.0.0.1:8080/user/login
