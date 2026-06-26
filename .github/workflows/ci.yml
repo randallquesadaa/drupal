@@ -14,6 +14,10 @@ env:
   PHP_VERSION: "8.5"      # CAMBIAR si tu sitio requiere otra versión
   NODE_VERSION: "24"      # CAMBIAR si tu tema/módulos requieren otra versión
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   # ───────────────────────────── LINT ─────────────────────────────

@@ -10,6 +10,10 @@ env:
   PHP_VERSION: "8.5"
   NODE_VERSION: "24"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   lighthouse-and-a11y:

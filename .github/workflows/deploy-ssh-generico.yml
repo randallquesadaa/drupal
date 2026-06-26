@@ -18,6 +18,10 @@ on:
     types: [completed]
     branches: [main]   # CAMBIAR si tu rama de producción se llama distinto
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy a producción (SSH)
