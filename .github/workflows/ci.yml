@@ -209,11 +209,10 @@ jobs:
           files: coverage.xml
           fail_ci_if_error: false  # CAMBIAR a true si querés que bloquee el merge
 
-      - name: Guardar build del sitio para otros jobs
+      - name: Guardar reporte de cobertura como artifact
         uses: actions/upload-artifact@v4
         with:
-          name: drupal-build
-          path: |
-            .
-            !vendor/**/tests
-          retention-days: 1
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 7
+          if-no-files-found: ignore
