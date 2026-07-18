@@ -888,6 +888,16 @@ if (isset($_ENV['PANTHEON_ENVIRONMENT']) && file_exists(__DIR__ . '/settings.pan
   include __DIR__ . '/settings.pantheon.php';
 }
 
+// Disable HTML5 form validation in the markup.
+// In Drupal 12 the $settings['enable_html5_validation'] default becomes FALSE
+// (browser-side validation off, server-side only). Setting it to FALSE now
+// makes this Drupal 11 environment behave like Drupal 12, so any form/CSS/JS
+// that depended on the browser's native validation (required/type=email
+// attributes, the "invalid" event) surfaces issues *before* upgrading.
+// Validation still runs server-side — this only removes the browser's
+// front-end blocking layer. Safe to keep this way in production.
+$settings['enable_html5_validation'] = FALSE;
+
 /**
  * Load local development override configuration, if available.
  *

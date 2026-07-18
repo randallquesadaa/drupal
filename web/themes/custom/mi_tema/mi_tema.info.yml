@@ -2,6 +2,6 @@ name: Mi Tema
 type: theme
 description: Tema de prueba para el pipeline CI/CD.
 core_version_requirement: ^11
-base theme: stable9
+base theme: false
 libraries:
   - mi_tema/global
