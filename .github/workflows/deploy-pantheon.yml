@@ -105,8 +105,7 @@ jobs:
 
       - name: Backup de base de datos en live antes de promover
         run: |
-          terminus backup:create ${{ env.TERMINUS_SITE }}.live --element=db \
-            --note="Pre-deploy ${{ github.sha }}"
+          terminus backup:create ${{ env.TERMINUS_SITE }}.live --element=db
 
       - name: Promover test -> live
         # Borrá este paso si preferís promover manualmente

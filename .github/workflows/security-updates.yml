@@ -1,0 +1,114 @@
+name: Actualizaciones de Seguridad
+
+on:
+  schedule:
+    - cron: '0 23 * * 3'   # Miércoles 23:00 UTC — CAMBIAR si tu zona horaria es distinta
+  workflow_dispatch:         # permite dispararlo manualmente desde GitHub UI
+
+jobs:
+  security-updates:
+    name: Detectar y aplicar actualizaciones de seguridad
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"   # CAMBIAR si tu sitio usa otra versión
+          tools: composer:v2
+
+      - name: Instalar dependencias
+        run: composer install --no-interaction --no-progress
+
+      - name: Verificar vulnerabilidades
+        id: audit
+        run: |
+          set +e
+          composer audit --format=json > /tmp/audit.json 2>/dev/null
+          EXIT_CODE=$?
+          set -e
+
+          HAS=$(jq -e '.advisories | length > 0' /tmp/audit.json 2>/dev/null && echo true || echo false)
+
+          if [ "$HAS" = "true" ] && [ $EXIT_CODE -ne 0 ]; then
+            echo "has_vulnerabilities=true" >> $GITHUB_OUTPUT
+            PACKAGES=$(jq -r '.advisories | keys[]' /tmp/audit.json | sort -u | tr '\n' ' ')
+            echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
+          else
+            echo "has_vulnerabilities=false" >> $GITHUB_OUTPUT
+            echo "Sin vulnerabilidades conocidas. No se requiere acción."
+          fi
+
+      - name: Actualizar paquetes vulnerables
+        if: steps.audit.outputs.has_vulnerabilities == 'true'
+        run: |
+          composer update ${{ steps.audit.outputs.packages }} \
+            --with-all-dependencies --no-interaction --no-progress
+
+      - name: Verificar si hubo cambios en composer.lock
+        id: changes
+        if: steps.audit.outputs.has_vulnerabilities == 'true'
+        run: |
+          if git diff --quiet composer.lock; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "composer.lock sin cambios — las actualizaciones disponibles podrían requerir intervención manual."
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generar cuerpo del PR
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          REPORT=$(jq -r '
+            .advisories | to_entries[] |
+            "- **\(.key)**: \(.value[0].title) — \(.value[0].cve // .value[0].link)"
+          ' /tmp/audit.json 2>/dev/null || echo "- Ver detalles en el log del workflow")
+
+          cat > /tmp/pr_body.md << HEREDOC
+          ## Actualizaciones de seguridad automáticas
+
+          Este PR fue generado automáticamente por el workflow de seguridad semanal
+          el $(date '+%Y-%m-%d a las %H:%M UTC').
+
+          ### Vulnerabilidades resueltas
+          ${REPORT}
+
+          ### Antes de hacer merge
+          - [ ] Revisar los cambios en \`composer.lock\`
+          - [ ] Instalar dependencias localmente y verificar que el sitio funciona
+          - [ ] Esperar que CI pase en este PR
+          - [ ] Hacer merge cuando todo esté verde
+
+          > Generado por el [workflow de seguridad](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          HEREDOC
+
+      - name: Crear etiquetas si no existen
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "security"     --color "d73a4a" --description "Actualizaciones de seguridad"   2>/dev/null || true
+          gh label create "dependencies" --color "0075ca" --description "Actualizaciones de dependencias" 2>/dev/null || true
+
+      - name: Crear rama y abrir PR
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="chore/security-updates-$(date +%Y-%m-%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add composer.json composer.lock
+          git commit -m "security: actualizaciones automáticas $(date +%Y-%m-%d)"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "security: actualizaciones de seguridad $(date +%Y-%m-%d)" \
+            --body-file /tmp/pr_body.md \
+            --base main \
+            --label "security,dependencies"
